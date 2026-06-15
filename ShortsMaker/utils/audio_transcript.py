@@ -10,6 +10,50 @@ from .logging_config import get_logger
 logger = get_logger(__name__)
 
 
+# --- local patch (safety-preserving) ---
+# PyTorch >= 2.6 changed torch.load to default weights_only=True, which rejects
+# pyannote's VAD checkpoint because it stores omegaconf/pyannote *config* objects.
+# Rather than the unsafe `weights_only=False` (which permits arbitrary code
+# execution from a checkpoint), we explicitly allowlist only the specific benign
+# config/dataclass globals that the trusted official pyannote checkpoint contains.
+# weights_only stays True.
+def _allowlist_pyannote_safe_globals() -> None:
+    import importlib
+
+    from torch.serialization import add_safe_globals
+
+    paths = [
+        "omegaconf.listconfig.ListConfig",
+        "omegaconf.dictconfig.DictConfig",
+        "omegaconf.base.ContainerMetadata",
+        "omegaconf.base.Metadata",
+        "omegaconf.nodes.AnyNode",
+        "omegaconf.nodes.IntegerNode",
+        "omegaconf.nodes.StringNode",
+        "omegaconf.nodes.FloatNode",
+        "omegaconf.nodes.BooleanNode",
+        "collections.defaultdict",
+        "torch.torch_version.TorchVersion",
+        "pyannote.audio.core.model.Introspection",
+        "pyannote.audio.core.task.Specifications",
+        "pyannote.audio.core.task.Problem",
+        "pyannote.audio.core.task.Resolution",
+    ]
+    import typing
+
+    safe = [dict, list, int, float, str, bool, typing.Any]
+    for path in paths:
+        module_name, _, attr = path.rpartition(".")
+        try:
+            safe.append(getattr(importlib.import_module(module_name), attr))
+        except Exception:
+            pass
+    add_safe_globals(safe)
+
+
+_allowlist_pyannote_safe_globals()
+
+
 def align_transcript_with_script(transcript: list[dict], script_string: str) -> list[dict]:
     """
     Aligns the transcript entries with corresponding segments of a script string by

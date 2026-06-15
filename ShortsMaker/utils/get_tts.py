@@ -13,13 +13,16 @@ from .retry import retry
 logger = get_logger(__name__)
 
 # define the endpoint data with URLs and corresponding response keys
+# NOTE (local patch): reordered so working endpoints are tried first. The
+# weilnet endpoint currently redirects to a dead host (ottsy.weilbyte.dev) and
+# fails with an SSL error, so it is moved last.
 ENDPOINT_DATA = [
+    {"url": "https://countik.com/api/text/speech", "response": "v_data"},
+    {"url": "https://gesserit.co/api/tiktok-tts", "response": "base64"},
     {
         "url": "https://tiktok-tts.weilnet.workers.dev/api/generation",
         "response": "data",
     },
-    {"url": "https://countik.com/api/text/speech", "response": "v_data"},
-    {"url": "https://gesserit.co/api/tiktok-tts", "response": "base64"},
 ]
 
 # define available voices for text-to-speech conversion
@@ -111,7 +114,9 @@ def _process_chunks(
             logger.error(f"RequestException for endpoint {endpoint['url']}: {e}")
             valid = False
         except requests.RequestException as e:
-            logger.warning(f"Response from endpoint {endpoint['url']}:\n{pformat(response.json)}")
+            # local patch: do not reference `response` here — when requests.post
+            # raises (e.g. SSL error) it is unbound, which previously masked the
+            # failure and broke fallback to the next endpoint.
             logger.error(f"RequestException for endpoint {endpoint['url']}: {e}")
             valid = False
 

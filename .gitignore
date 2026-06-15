@@ -32,3 +32,20 @@ setup.yml
 *.ipynb
 .ipynb_checkpoints
 .ruff_cache
+
+# OS / editor
+.DS_Store
+
+# Python caches
+__pycache__/
+
+# Local runtime output / scratch
+*.out
+web_*.txt
+
+# Vendored skill docs (not part of this project)
+docs/superpowers/
+
+# Personal source content — not for publication
+story.txt
+aita_source.txt
